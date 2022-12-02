@@ -45,12 +45,12 @@ rps = f where
 
 decrypt :: RPS -> Outcome -> RPS
 decrypt x       Draw  = x
-decrypt Rock    Win  = Paper
-decrypt Paper   Win  = Scissor
-decrypt Scissor Win  = Rock
-decrypt Rock    Lose = Scissor
-decrypt Paper   Lose = Rock
-decrypt Scissor Lose = Paper
+decrypt Rock    Win   = Paper
+decrypt Paper   Win   = Scissor
+decrypt Scissor Win   = Rock
+decrypt Rock    Lose  = Scissor
+decrypt Paper   Lose  = Rock
+decrypt Scissor Lose  = Paper
 
 loadColumn1 :: FilePath -> IO [Char]
 loadColumn1 = fmap (map head . lines) . readFile
