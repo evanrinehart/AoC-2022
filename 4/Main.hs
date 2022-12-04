@@ -2,8 +2,7 @@ module Main where
 
 import Data.Tuple
 
-data SA = SA Int Int
-  deriving Show
+data SA = SA Int Int deriving Show
 
 parseSA :: String -> (SA, String)
 parseSA str =
@@ -20,15 +19,13 @@ parseAP str =
 loadData :: FilePath -> IO [(SA,SA)]
 loadData = fmap (map parseAP . lines) . readFile
 
-contains :: (SA, SA) -> Bool
-contains (SA a b, SA c d) = c >= a && d <= b
-
-apart :: (SA, SA) -> Bool
-apart (SA a b, SA c d) = b < c || d < a
-
-overlaps = not . apart
+contains (SA a b) (SA c d) = a <= c && d <= b
+apart    (SA a b) (SA c d) = b < c || d < a
+overlaps x y               = not (apart x y)
 
 main = do
   pairs <- loadData "input"
-  print (length (filter (\p -> contains p || contains (swap p)) pairs))
-  print (length (filter overlaps pairs))
+  let f = uncurry contains
+  let g = uncurry overlaps
+  print (length (filter (\p -> f p || (f . swap) p) pairs))
+  print (length (filter g pairs))
