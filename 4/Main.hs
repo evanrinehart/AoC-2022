@@ -2,13 +2,13 @@ module Main where
 
 import Data.Tuple
 
-data SA = SA Int Int deriving Show
+type SA = (Int,Int)
 
 parseSA :: String -> (SA, String)
 parseSA str =
   let [(n1, '-':more)] = reads str 
       [(n2, rest)]     = reads more
-  in (SA n1 n2, rest)
+  in ((n1,n2), rest)
 
 parseAP :: String -> (SA, SA)
 parseAP str =
@@ -19,9 +19,9 @@ parseAP str =
 loadData :: FilePath -> IO [(SA,SA)]
 loadData = fmap (map parseAP . lines) . readFile
 
-contains (SA a b) (SA c d) = a <= c && d <= b
-apart    (SA a b) (SA c d) = b < c || d < a
-overlaps x y               = not (apart x y)
+contains (a,b) (c,d) = a <= c && d <= b
+apart    (a,b) (c,d) = b < c || d < a
+overlaps x y         = not (apart x y)
 
 main = do
   pairs <- loadData "input"
