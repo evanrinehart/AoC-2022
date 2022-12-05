@@ -1,41 +1,39 @@
-#!cabal
-{- cabal:
-build-depends: base, mtl
--}
 module Main where
 
 import Data.Maybe
 import Data.List
-import Control.Monad.State
+import Data.Array
 
 type Stack = [Char]
-data Ins =
-  Ins {
-    insNum  :: Int,
-    insFrom :: Int,
-    insTo   :: Int
-  } deriving Show
+type Yard  = Array Int Stack
 
-doIns1 :: Ins -> State [Stack] ()
-doIns1 (Ins n from to) = replicateM_ n (move from to)
+data Ins = Ins { insNum :: Int, insFrom :: Int, insTo :: Int } deriving Show
 
-doIns2 :: Ins -> State [Stack] ()
+doIns1 :: Ins -> Yard -> Yard
+doIns1 (Ins n from to) stacks = iterate (move from to) stacks !! n
+
+doIns2 :: Ins -> Yard -> Yard
 doIns2 (Ins n from to) = moveMany n from to
 
-move :: Int -> Int -> State [Stack] ()
-move from to = modify $ \stacks ->
-  let crate = head (stacks !! (from-1))
-  in (update (from-1) tail . update (to-1) (crate:)) stacks
+move :: Int -> Int -> Yard -> Yard
+move from to stacks =
+  let crate:rest = stacks ! from
+      toStack    = stacks ! to
+  in stacks // [(from, rest), (to, crate:toStack)]
 
-moveMany :: Int -> Int -> Int -> State [Stack] ()
-moveMany n from to = modify $ \stacks ->
-  let (crates, rest) = splitAt n (stacks !! (from-1))
-  in (update (from-1) (const rest) . update (to-1) (crates++)) stacks
+moveMany :: Int -> Int -> Int -> Yard -> Yard
+moveMany n from to stacks = 
+  let (crates, rest) = splitAt n (stacks ! from)
+      toStack        = stacks ! to
+  in stacks // [(from, rest), (to, crates ++ toStack)]
+
+readout :: Yard -> [Char]
+readout = map head . elems
 
 main = do
   (layout, insList) <- loadData "input"
-  print $ map head (execState (mapM_ doIns1 insList) layout)
-  print $ map head (execState (mapM_ doIns2 insList) layout)
+  putStrLn $ readout (foldl' (flip doIns1) layout insList)
+  putStrLn $ readout (foldl' (flip doIns2) layout insList)
 
 -- misc
 
@@ -62,8 +60,10 @@ parseLine1 str = case parseCrate str of
   Just (crate, _       ) -> [crate]
   Nothing                -> []
 
-parseLayout :: [String] -> [Stack]
-parseLayout ls = map catMaybes (transpose (map parseLine1 ls))
+parseLayout :: [String] -> Yard
+parseLayout ls =
+  let stacks = map catMaybes (transpose (map parseLine1 ls))
+  in listArray (1, length stacks) stacks
 
 parseIns :: String -> Ins
 parseIns input =
@@ -73,10 +73,8 @@ parseIns input =
       [(to,_)] = reads rest'
   in Ins n from to
 
-loadData :: FilePath -> IO ([Stack], [Ins])
+loadData :: FilePath -> IO (Yard, [Ins])
 loadData path = do
   ls <- fmap lines (readFile path)
-  return ls
   let [foo,bar] = splitOn (== "") ls
   return (parseLayout (init foo), map parseIns bar)
-
