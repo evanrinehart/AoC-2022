@@ -67,7 +67,7 @@ parseIns input =
       [(n,' ':'f':'r':'o':'m':' ':rest)] = reads str
       [(from,' ':'t':'o':' ':rest')] = reads rest
       [(to,_)] = reads rest'
-  in Ins n from to
+  in Ins{insNum=n, insFrom=from, insTo=to}
 
 loadData :: FilePath -> IO (Yard, [Ins])
 loadData path = do
