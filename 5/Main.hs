@@ -37,10 +37,6 @@ main = do
 
 -- misc
 
-update :: Int -> (a -> a) -> [a] -> [a]
-update 0 f (x:xs) = f x : xs
-update n f (x:xs) = x : update (n-1) f xs
-
 splitOn :: (a -> Bool) -> [a] -> [[a]]
 splitOn _ [] = []
 splitOn f l@(x:xs)
