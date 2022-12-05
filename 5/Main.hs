@@ -38,10 +38,10 @@ main = do
 -- misc
 
 splitOn :: (a -> Bool) -> [a] -> [[a]]
-splitOn _ [] = []
-splitOn f l@(x:xs)
-  | f x = splitOn f xs
-  | otherwise = let (h,t) = break f l in h:(splitOn f t)
+splitOn _ []  = []
+splitOn f (x:xs)
+  | f x       = splitOn f xs -- skip this element
+  | otherwise = let (l,r) = break f (x:xs) in l : splitOn f r -- output a chunk
 
 -- parse all the things
 
@@ -50,15 +50,15 @@ parseCrate (' ':' ':' ':rest) = Just (Nothing, rest)
 parseCrate ('[': c :']':rest) = Just (Just c, rest)
 parseCrate _                  = Nothing
 
-parseLine1 :: String -> [Maybe Char]
-parseLine1 str = case parseCrate str of
-  Just (crate, ' ':rest) -> crate : parseLine1 rest
+parseLine :: String -> [Maybe Char]
+parseLine str = case parseCrate str of
+  Just (crate, ' ':rest) -> crate : parseLine rest
   Just (crate, _       ) -> [crate]
   Nothing                -> []
 
 parseLayout :: [String] -> Yard
 parseLayout ls =
-  let stacks = map catMaybes (transpose (map parseLine1 ls))
+  let stacks = map catMaybes (transpose (map parseLine ls))
   in listArray (1, length stacks) stacks
 
 parseIns :: String -> Ins
