@@ -25,29 +25,8 @@ catchUp h t =
     then t
     else shift (clip (diff h t)) t
 
-charToDir :: Char -> Diff
-charToDir 'U' = ( 0, 1)
-charToDir 'D' = ( 0,-1)
-charToDir 'L' = (-1, 0)
-charToDir 'R' = ( 1, 0)
-
-parseMove :: String -> [Diff]
-parseMove (c1:' ':rest) = case reads rest of
-  [(n,_)] -> replicate n (charToDir c1)
-
-loadData :: FilePath -> IO [Diff]
-loadData path = fmap (concatMap parseMove . lines) (readFile path)
-
-step :: Diff -> (Point,Point) -> (Point,Point)
-step d (t,h) =
-  let h' = shift d h in
-  (catchUp h' t, h')
-
 stepN :: Diff -> [Point] -> [Point]
-stepN mainD (p:oints) = scanl catchUp (shift mainD p) oints
-
-simulate :: Point -> [Diff] -> [(Point,Point)]
-simulate start ds = scanl (flip step) (start,start) ds
+stepN d (p:oints) = scanl catchUp (shift d p) oints
 
 simulateN :: Int -> Point -> [Diff] -> [[Point]]
 simulateN n start ds = scanl (flip stepN) (replicate n (0,0)) ds
@@ -58,3 +37,19 @@ main = do
   print (length (nub trail2))
   let trail10 = map last (simulateN 10 (0,0) ds)
   print (length (nub trail10))
+
+-- boring
+
+loadData :: FilePath -> IO [Diff]
+loadData path = fmap (concatMap parseMove . lines) (readFile path)
+
+parseMove :: String -> [Diff]
+parseMove (c1:' ':rest) = case reads rest of
+  [(n,_)] -> replicate n (charToDir c1)
+
+charToDir :: Char -> Diff
+charToDir 'U' = ( 0, 1)
+charToDir 'D' = ( 0,-1)
+charToDir 'L' = (-1, 0)
+charToDir 'R' = ( 1, 0)
+
