@@ -28,14 +28,14 @@ catchUp h t =
 stepN :: Diff -> [Point] -> [Point]
 stepN d (p:oints) = scanl catchUp (shift d p) oints
 
-simulateN :: Int -> Point -> [Diff] -> [[Point]]
-simulateN n start ds = scanl (flip stepN) (replicate n (0,0)) ds
+simulateN :: Int -> [Diff] -> [[Point]]
+simulateN n ds = scanl (flip stepN) (replicate n (0,0)) ds
 
 main = do
   ds <- loadData "input"
-  let trail2 = map last (simulateN 2 (0,0) ds)
+  let trail2 = map last (simulateN 2 ds)
   print (length (nub trail2))
-  let trail10 = map last (simulateN 10 (0,0) ds)
+  let trail10 = map last (simulateN 10 ds)
   print (length (nub trail10))
 
 -- boring
