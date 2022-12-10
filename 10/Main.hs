@@ -10,20 +10,20 @@ simulate x []               = [x]
 strength :: [Int] -> [Int]
 strength = zipWith (*) [1..]
 
-answer1 = sum . take 6 . everyN 40 . drop 19 . strength . simulate 1
+answer1 = sum . take 6 . everyN 40 . drop 19 . strength
 
 scanline :: [Int] -> [Char]
 scanline xs = zipWith f xs [1..] where
-  f str n = let i = (n-1) `mod` 40 in
-            let x = str `div` n in
-            if abs (x - i) <= 1 then '#' else '.'
+  f x n = let i = (n-1) `mod` 40 in
+          if abs (x - i) <= 1 then '#' else '.'
 
-answer2 = chunksOf 40 . scanline . strength . simulate 1
+answer2 = chunksOf 40 . scanline
 
 main = do
   ins <- loadData "input"
-  print (answer1 ins)
-  mapM_ putStrLn (answer2 ins)
+  let signal = simulate 1 ins
+  print (answer1 signal)
+  mapM_ putStrLn (answer2 signal)
 
 loadData = fmap (map parseLine . lines) . readFile
 
