@@ -3,8 +3,8 @@ module Main where
 import Prelude hiding (round)
 import Control.Monad.RWS
 import Data.List
-import Data.Map (Map, (!))
-import qualified Data.Map as M
+import Data.IntMap (IntMap, (!))
+import qualified Data.IntMap as IM
 
 brains = 
   [Brain (OldTimes 3)  (Test 2  1 4)   -- 0
@@ -16,8 +16,8 @@ brains =
   ,Brain (OldPlus 7)   (Test 17 7 2)   -- 6
   ,Brain (OldPlus 4)   (Test 13 2 0)]  -- 7
 
-startingInventories :: Map Int [Int]
-startingInventories = M.fromList
+startingInventories :: IntMap [Int]
+startingInventories = IM.fromList
   [(0, [66, 59, 64, 51])
   ,(1, [67, 61])
   ,(2, [86, 93, 80, 70, 71, 81, 56])
@@ -28,21 +28,21 @@ startingInventories = M.fromList
   ,(7, [54, 95, 70, 93, 88, 93, 63, 50])]
 
 main = do
-  let divisors = map divisorOf brains
   let inv1 = startingInventories
-  let inv2 = M.map (map (toRidiculous divisors)) startingInventories
+  let inv2 = IM.map (map (toRidiculous (map divisorOf brains))) inv1
   print (answer brains 20    inv1)
   print (answer brains 10000 inv2)
 
--- Run n rounds with given brains and starting worry list
-answer :: Worry n => [Brain] -> Int -> Map Int [n] -> Int
-answer brains n inv =
-  let (_, _, Tally counts) = runRWS (replicateM n round) brains inv
-      [n1,n2]              = (take 2 . reverse . sort . M.elems) counts
+answer :: Worry n => [Brain] -> Int -> IntMap [n] -> Int
+answer brains numRounds inv =
+  let (_, _, Tally counts) = runRWS (replicateM numRounds round) brains inv
+      [n1,n2]              = (take 2 . reverse . sort . IM.elems) counts
   in n1 * n2
 
+type Business n a = RWS [Brain] Tally (IntMap [n]) a
+
 round :: Worry n => Business n ()
-round = ask >>= \brains -> mapM_ (uncurry monkey) (zip [0..] brains)
+round = mapM_ (uncurry monkey) . zip [0..] =<< ask
 
 monkey :: Worry n => Int -> Brain -> Business n ()
 monkey i (Brain op (Test d t1 t2)) = do
@@ -52,33 +52,13 @@ monkey i (Brain op (Test d t1 t2)) = do
     let target = if d `divides` lvl' then t1 else t2
     throwTo target lvl'
     incrementTally i 
-  modify (M.insert i [])
+  modify (IM.insert i [])
 
 throwTo :: Int -> n -> Business n ()
-throwTo target item = modify (M.adjust (++[item]) target)
+throwTo target item = modify (IM.adjust (++[item]) target)
 
 incrementTally :: Int -> Business n ()
 incrementTally = tell . tick
-
--- Reader-Writer-State monad where
--- we can read a bunch of brains
--- we can modify some lists of worry
--- we can output counts for each monkey
-type Business n a = RWS [Brain] Tally (Map Int [n]) a
-
-newtype Tally = Tally (Map Int Int)
-  deriving Show
-
-instance Semigroup Tally where
-  Tally t1 <> Tally t2 = Tally (M.unionWith (+) t1 t2)
-
-instance Monoid Tally where
-  mempty = Tally M.empty
-
-tick :: Int -> Tally
-tick i = Tally (M.singleton i 1)
-
-
 
 
 -- Types which work as worry levels
@@ -97,23 +77,22 @@ instance Worry Int where
   relieve n   = n `div` 3
 
 instance Worry Ridiculous where
-  add n     = onRidiculous (M.mapWithKey (\k r -> (r + n) `mod` k))
-  times n   = onRidiculous (M.mapWithKey (\k r -> (r * n) `mod` k))
-  square    = onRidiculous (M.mapWithKey (\k r -> (r * r) `mod` k))
+  add n     = onRidiculous (IM.mapWithKey (\k r -> (r + n) `mod` k))
+  times n   = onRidiculous (IM.mapWithKey (\k r -> (r * n) `mod` k))
+  square    = onRidiculous (IM.mapWithKey (\k r -> (r * r) `mod` k))
   divides n = (== 0) . lookupRidiculous n
   relieve   = id -- no relief
 
-
--- Table of remainders mod k
-newtype Ridiculous = Ridiculous (Map Int Int)
+-- Number tracked as table of remainders mod k
+newtype Ridiculous = Ridiculous (IntMap Int)
   deriving Show
 
 onRidiculous f (Ridiculous table) = Ridiculous (f table)
 
 toRidiculous :: [Int] -> Int -> Ridiculous
 toRidiculous divisors n = Ridiculous table where
-  table     = normalize (M.fromList (zip divisors (repeat n)))
-  normalize = M.mapWithKey (\k r -> r `mod` k)
+  table     = normalize (IM.fromList (zip divisors (repeat n)))
+  normalize = IM.mapWithKey (\k r -> r `mod` k)
 
 lookupRidiculous :: Int -> Ridiculous -> Int
 lookupRidiculous k (Ridiculous table) = table ! k
@@ -139,3 +118,15 @@ applyOp (OldTimes n) = times n
 applyOp OldSquared   = square
 
 divisorOf (Brain _ (Test d _ _)) = d
+
+newtype Tally = Tally (IntMap Int)
+  deriving Show
+
+instance Semigroup Tally where
+  Tally t1 <> Tally t2 = Tally (IM.unionWith (+) t1 t2)
+
+instance Monoid Tally where
+  mempty = Tally IM.empty
+
+tick :: Int -> Tally
+tick i = Tally (IM.singleton i 1)
