@@ -1,73 +1,91 @@
 module Main where
 
-import Prelude hiding (round)
-import Control.Monad.RWS
 import Data.List
 import Data.IntMap (IntMap, (!))
 import qualified Data.IntMap as IM
+import Control.Monad.State
 
-brains = 
-  [Brain (OldTimes 3)  (Test 2  1 4)   -- 0
-  ,Brain (OldTimes 19) (Test 7  3 5)   -- 1
-  ,Brain (OldPlus 2)   (Test 11 4 0)   -- 2
-  ,Brain (OldSquared)  (Test 19 7 6)   -- 3
-  ,Brain (OldPlus 8)   (Test 3  5 1)   -- 4
-  ,Brain (OldPlus 6)   (Test 5  3 6)   -- 5
-  ,Brain (OldPlus 7)   (Test 17 7 2)   -- 6
-  ,Brain (OldPlus 4)   (Test 13 2 0)]  -- 7
+data Monkey n = Monkey
+  { activity  :: Int
+  , operation :: Operation
+  , divisor   :: Int
+  , target1   :: Int
+  , target2   :: Int
+  , inventory :: [n] }
+      deriving Show
 
-startingInventories :: IntMap [Int]
-startingInventories = IM.fromList
-  [(0, [66, 59, 64, 51])
-  ,(1, [67, 61])
-  ,(2, [86, 93, 80, 70, 71, 81, 56])
-  ,(3, [94])
-  ,(4, [71, 92, 64])
-  ,(5, [58, 81, 92, 75, 56])
-  ,(6, [82, 98, 77, 94, 86, 81])
-  ,(7, [54, 95, 70, 93, 88, 93, 63, 50])]
+data Operation = OldPlus Int | OldTimes Int | OldSquared
+    deriving Show
+
+class Worry n where
+  add     :: Int -> n -> n
+  times   :: Int -> n -> n
+  square  :: n -> n
+  divides :: Int -> n -> Bool
+  relieve :: n -> n
+
+answer :: Worry n => Int -> [Monkey n] -> Int
+answer numRounds monkeys = out where
+  out       = n1 * n2
+  [n1,n2]   = crunch (execState theRounds monkeyMap)
+  monkeyMap = IM.fromList (zip [0..] monkeys)
+  crunch    = take 2 . reverse . sort . map activity . IM.elems
+  theRounds = replicateM_ numRounds $ do
+    keys <- gets IM.keys
+    forM_ keys $ \i -> do
+      m@Monkey{operation=op,divisor=d,target1=t1,target2=t2} <- gets (! i)
+      forM_ (inventory m) $ \lvl -> do
+        let lvl'   = relieve (applyOp op lvl)
+        let target = if d `divides` lvl' then t1 else t2
+        modify (throwTo target lvl')
+        modify (tick i)
+      modify (clearInv i)
 
 main = do
-  let inv1 = startingInventories
-  let inv2 = IM.map (map (toRidiculous (map divisorOf brains))) inv1
-  print (answer brains 20    inv1)
-  print (answer brains 10000 inv2)
+  monkeys1 <- loadData "input"
+  let monkeys2 = makeRidiculous monkeys1
+  print (answer 20    monkeys1)
+  print (answer 10000 monkeys2)
 
-answer :: Worry n => [Brain] -> Int -> IntMap [n] -> Int
-answer brains numRounds inv =
-  let (_, _, Tally counts) = runRWS (replicateM numRounds round) brains inv
-      [n1,n2]              = (take 2 . reverse . sort . IM.elems) counts
-  in n1 * n2
+-- misc
+applyOp :: Worry n => Operation -> n -> n
+applyOp (OldPlus n)  = add n
+applyOp (OldTimes n) = times n
+applyOp OldSquared   = square
 
-type Business n a = RWS [Brain] Tally (IntMap [n]) a
+onActivity  f m = m { activity = f (activity m) }
+onInventory f m = m { inventory = f (inventory m) }
 
-round :: Worry n => Business n ()
-round = mapM_ (uncurry monkey) . zip [0..] =<< ask
+tick i      = IM.adjust (onActivity (+1)) i
+throwTo i n = IM.adjust (onInventory (++[n])) i
+clearInv i  = IM.adjust (onInventory (const [])) i
 
-monkey :: Worry n => Int -> Brain -> Business n ()
-monkey i (Brain op (Test d t1 t2)) = do
-  items <- gets (! i)
-  forM_ items $ \lvl -> do
-    let lvl'   = relieve (applyOp op lvl)
-    let target = if d `divides` lvl' then t1 else t2
-    throwTo target lvl'
-    incrementTally i 
-  modify (IM.insert i [])
+-- Number tracked as table of remainders mod k
+newtype Ridiculous = Ridiculous (IntMap Int)
+  deriving Show
 
-throwTo :: Int -> n -> Business n ()
-throwTo target item = modify (IM.adjust (++[item]) target)
+toRidiculous :: [Int] -> Int -> Ridiculous
+toRidiculous moduli n = Ridiculous table where
+  table     = normalize (IM.fromList (zip moduli (repeat n)))
+  normalize = IM.mapWithKey (\k r -> r `mod` k)
 
-incrementTally :: Int -> Business n ()
-incrementTally = tell . tick
+lookupRidiculous :: Int -> Ridiculous -> Int
+lookupRidiculous k (Ridiculous table) = table ! k
 
+onRidiculous f (Ridiculous table) = Ridiculous (f table)
 
--- Types which work as worry levels
-class Worry a where
-  add     :: Int -> a -> a
-  times   :: Int -> a -> a
-  square  :: a -> a
-  divides :: Int -> a -> Bool
-  relieve :: a -> a
+makeRidiculous :: [Monkey Int] -> [Monkey Ridiculous]
+makeRidiculous ms = map f ms where
+  f m      = m {inventory = map (toRidiculous divisors) (inventory m)}
+  divisors = map divisor ms
+
+-- Ridiculous works where a Worry is required
+instance Worry Ridiculous where
+  add n     = onRidiculous (IM.mapWithKey (\k r -> (r + n) `mod` k))
+  times n   = onRidiculous (IM.mapWithKey (\k r -> (r * n) `mod` k))
+  square    = onRidiculous (IM.mapWithKey (\k r -> (r * r) `mod` k))
+  divides n = (== 0) . lookupRidiculous n
+  relieve   = id -- no relief
 
 instance Worry Int where
   add         = (+)
@@ -76,57 +94,26 @@ instance Worry Int where
   divides d n = n `mod` d == 0
   relieve n   = n `div` 3
 
-instance Worry Ridiculous where
-  add n     = onRidiculous (IM.mapWithKey (\k r -> (r + n) `mod` k))
-  times n   = onRidiculous (IM.mapWithKey (\k r -> (r * n) `mod` k))
-  square    = onRidiculous (IM.mapWithKey (\k r -> (r * r) `mod` k))
-  divides n = (== 0) . lookupRidiculous n
-  relieve   = id -- no relief
 
--- Number tracked as table of remainders mod k
-newtype Ridiculous = Ridiculous (IntMap Int)
-  deriving Show
+-- loader
+loadData :: FilePath -> IO [Monkey Int]
+loadData = fmap (map parseMonkey . splitOn "" . lines) . readFile
 
-onRidiculous f (Ridiculous table) = Ridiculous (f table)
+parseMonkey :: [String] -> Monkey Int
+parseMonkey [l1,l2,l3,l4,l5,l6] = Monkey 0 op d t1 t2 ns where
+  gut c = tail . dropWhile (/= c)
+  strip = dropWhile (== ' ')
+  ns    = (map (read . strip) . splitOn ',' . gut ':') l2
+  op    = (parseOp . tail . gut '=' . gut ':') l3
+  d     = (read . tail . gut 'y') l4
+  t1    = (read . tail . gut 'y') l5
+  t2    = (read . tail . gut 'y') l6
+  parseOp ('o':'l':'d':' ':'+':' ':str) = OldPlus (read str)
+  parseOp "old * old"                   = OldSquared
+  parseOp ('o':'l':'d':' ':'*':' ':str) = OldTimes (read str)
 
-toRidiculous :: [Int] -> Int -> Ridiculous
-toRidiculous divisors n = Ridiculous table where
-  table     = normalize (IM.fromList (zip divisors (repeat n)))
-  normalize = IM.mapWithKey (\k r -> r `mod` k)
-
-lookupRidiculous :: Int -> Ridiculous -> Int
-lookupRidiculous k (Ridiculous table) = table ! k
-
--- Brains
-data Brain = Brain Operation Test deriving Show
-
-data Operation =
-  OldPlus Int |
-  OldTimes Int |
-  OldSquared
-    deriving Show
-
-data Test = Test
-  { testDivisor :: Int
-  , testTrue    :: Int
-  , testFalse   :: Int }
-      deriving Show
-
-applyOp :: Worry n => Operation -> n -> n
-applyOp (OldPlus n)  = add n
-applyOp (OldTimes n) = times n
-applyOp OldSquared   = square
-
-divisorOf (Brain _ (Test d _ _)) = d
-
-newtype Tally = Tally (IntMap Int)
-  deriving Show
-
-instance Semigroup Tally where
-  Tally t1 <> Tally t2 = Tally (IM.unionWith (+) t1 t2)
-
-instance Monoid Tally where
-  mempty = Tally IM.empty
-
-tick :: Int -> Tally
-tick i = Tally (IM.singleton i 1)
+splitOn :: Eq a => a -> [a] -> [[a]]
+splitOn _ [] = []
+splitOn z l@(x:xs)
+  | x==z      = splitOn z xs
+  | otherwise = let (h,t) = break (==z) l in h:(splitOn z t)
