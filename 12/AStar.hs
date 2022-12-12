@@ -27,7 +27,7 @@ data Guts p = Guts
   , decoder  :: IntMap p }
       deriving Show
 
-makeGuts :: Ord p => PathSpace p -> p -> Guts p
+makeGuts :: PathSpace p -> p -> Guts p
 makeGuts PathSpace{heuristic=h,encodePoint=en} start =
   let s = en start in
   Guts
@@ -84,4 +84,3 @@ reconstructPath Guts{cameFrom=cf} end = go [] end where
 pinsert :: Ord a => a -> [a] -> [a]
 pinsert x []     = [x]
 pinsert x (y:ys) = if x <= y then x:y:ys else y : insert x ys
-
