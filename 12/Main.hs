@@ -27,7 +27,7 @@ main = do
 makeSpace :: Point -> Grid -> PathSpace (Int,Int)
 makeSpace (ex,ey) grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh,encodePoint=en} where
   (width,height) = snd (bounds grid)
-  lw from to     = 141
+  lw from to     = 719
   h (x,y)        = (ex - x) + (ey - y)
   nh             = neighboring width height grid
   en (x,y)       = y*width + x
