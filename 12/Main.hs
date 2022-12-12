@@ -18,27 +18,27 @@ type Grid = Array (Int,Int) Int
 main = do
   (grid, start, end) <- loadData "input"
 
-  let astar = makeAStar grid
+  let astar = findPathFromTo (makeSpace end grid)
   print (length (astar start end) - 1)
 
   let starts = map (\j -> (1,j)) [1..41]
   print (minimum (map (length . flip astar end) starts) - 1)
 
-makeAStar :: Grid -> Point -> Point -> [Point]
-makeAStar grid = findPathFromTo (makeSpace grid)
+makeSpace :: Point -> Grid -> PathSpace (Int,Int)
+makeSpace (ex,ey) grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh,encodePoint=en} where
+  (width,height) = snd (bounds grid)
+  lw from to     = 141
+  h (x,y)        = (ex - x) + (ey - y)
+  nh             = neighboring width height grid
+  en (x,y)       = y*width + x
 
-makeSpace :: Grid -> PathSpace (Int,Int)
-makeSpace grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh,encodePoint=en} where
-  width = let (_,(w,_)) = bounds grid in w
-  lw from to =
-    let h1 = grid ! from
-        h2 = grid ! to
-    in if h2 - h1 > 1 then 99999 else 141
-  h (x,y) = (159 - x) + (21 - y)
-  nh (x,y) = filter (not . outOfBounds) ps where
-    ps = [(x-1,y), (x+1,y), (x,y-1), (x,y+1)]
-    outOfBounds (a,b) = a < 1 || b < 1 || a > 181 || b > 41
-  en (x,y) = y*width + x
+neighboring :: Int -> Int -> Grid -> Point -> [Point]
+neighboring w h grid (x,y) = p1 ++ p2 ++ p3 ++ p4 where
+  cutoff = grid ! (x,y) + 1
+  p1 = let p = (x-1,y) in if x > 1 && grid ! p <= cutoff then [p] else []
+  p2 = let p = (x+1,y) in if x < w && grid ! p <= cutoff then [p] else []
+  p3 = let p = (x,y-1) in if y > 1 && grid ! p <= cutoff then [p] else []
+  p4 = let p = (x,y+1) in if y < h && grid ! p <= cutoff then [p] else []
 
 
 
