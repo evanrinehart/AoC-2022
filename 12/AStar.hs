@@ -1,4 +1,3 @@
---{-# LANGUAGE ScopedTypeVariables #-}
 module AStar where
 
 import Data.IntMap (IntMap, (!)); import qualified Data.IntMap as IM

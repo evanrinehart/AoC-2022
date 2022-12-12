@@ -35,10 +35,10 @@ makeSpace (ex,ey) grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh,e
 neighboring :: Int -> Int -> Grid -> Point -> [Point]
 neighboring w h grid (x,y) = p1 ++ p2 ++ p3 ++ p4 where
   cutoff = grid ! (x,y) + 1
-  p1 = let p = (x-1,y) in if x > 1 && grid ! p <= cutoff then [p] else []
-  p2 = let p = (x+1,y) in if x < w && grid ! p <= cutoff then [p] else []
-  p3 = let p = (x,y-1) in if y > 1 && grid ! p <= cutoff then [p] else []
-  p4 = let p = (x,y+1) in if y < h && grid ! p <= cutoff then [p] else []
+  p1 = if x > 1 && grid ! p <= cutoff then [p] else [] where p = (x-1,y)
+  p2 = if x < w && grid ! p <= cutoff then [p] else [] where p = (x+1,y) 
+  p3 = if y > 1 && grid ! p <= cutoff then [p] else [] where p = (x,y-1)
+  p4 = if y < h && grid ! p <= cutoff then [p] else [] where p = (x,y+1)
 
 
 
