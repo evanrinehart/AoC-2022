@@ -1,4 +1,4 @@
-module AStar where
+module AStar2 where
 
 import Data.IntMap (IntMap, (!)); import qualified Data.IntMap as IM
 import Data.Maybe

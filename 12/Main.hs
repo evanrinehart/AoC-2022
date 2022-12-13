@@ -25,12 +25,11 @@ main = do
   print (minimum (map (length . flip astar end) starts) - 1)
 
 makeSpace :: Point -> Grid -> PathSpace (Int,Int)
-makeSpace (ex,ey) grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh,encodePoint=en} where
+makeSpace (ex,ey) grid = PathSpace{linkWeight=lw,heuristic=h,neighborhoodOf=nh} where
   (width,height) = snd (bounds grid)
   lw from to     = 719
   h (x,y)        = (ex - x) + (ey - y)
   nh             = neighboring width height grid
-  en (x,y)       = y*width + x
 
 neighboring :: Int -> Int -> Grid -> Point -> [Point]
 neighboring w h grid (x,y) = p1 ++ p2 ++ p3 ++ p4 where
