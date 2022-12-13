@@ -40,6 +40,7 @@ instance Ord T where
       GT -> GT
       EQ -> go as bs
 
+loadData :: FilePath -> IO [T]
 loadData = fmap (map parseT . filter (/="") . lines) . readFile
 
 pair (x1:x2:more) = (x1,x2) : pair more
