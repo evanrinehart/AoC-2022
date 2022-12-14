@@ -45,10 +45,12 @@ putCell rows (i,j) = IM.alter f j rows where
   f Nothing     = Just (IS.singleton i)
   f (Just cols) = Just (IS.insert i cols)
 
+cellBlocked :: Grid -> P -> Bool
 cellBlocked rows (i,j) = case IM.lookup j rows of
   Just cols -> IS.member i cols
   Nothing   -> False
 
+cellFree :: Grid -> P -> Bool
 cellFree grid = not . cellBlocked grid
 
 expandLine :: Line -> [P]
@@ -63,9 +65,7 @@ drawWalls :: Grid -> [Line] -> Grid
 drawWalls grid ls = foldl' drawLine grid ls
 
 buildGrid :: [[Line]] -> Grid
-buildGrid = foldl' drawWalls emptyGrid
-
-emptyGrid = IM.empty
+buildGrid = foldl' drawWalls IM.empty
 
 
 -- | Loader
@@ -85,6 +85,8 @@ parseLine (N a : N b : Arrow : N c : N d : more) = ((a,b),(c,d)) : case more of
 
 loadData :: FilePath -> IO [[Line]]
 loadData = fmap (map (parseLine . tokenize) . lines) . readFile
+
+-- | Main
 
 main = do
   wallsList <- loadData "input"
