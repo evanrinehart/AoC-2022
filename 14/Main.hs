@@ -5,13 +5,6 @@ import Data.IntSet (IntSet); import qualified Data.IntSet as IS
 import Data.Ix
 import Data.List
 
-main = do
-  wallsList <- loadData "input"
-  let cave   = buildGrid wallsList
-  let maxRow = maximum (IM.keys cave)
-  print (length (simulate (maxRow + 3) (maxRow + 4) cave))
-  print (length (simulate (maxRow + 3) (maxRow + 2) cave))
-
 
 -- | Sand
 
@@ -92,3 +85,10 @@ parseLine (N a : N b : Arrow : N c : N d : more) = ((a,b),(c,d)) : case more of
 
 loadData :: FilePath -> IO [[Line]]
 loadData = fmap (map (parseLine . tokenize) . lines) . readFile
+
+main = do
+  wallsList <- loadData "input"
+  let cave   = buildGrid wallsList
+  let maxRow = maximum (IM.keys cave)
+  print (length (simulate (maxRow + 3) (maxRow + 4) cave))
+  print (length (simulate (maxRow + 3) (maxRow + 2) cave))
