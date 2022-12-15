@@ -31,7 +31,7 @@ simulate1 voidLvl floorLvl grid = go (500,0) where
 simulate :: Int -> Int -> Grid -> [Grid]
 simulate voidLvl floorLvl cave = go cave where
   go grid = case simulate1 voidLvl floorLvl grid of
-    Nothing     -> []
+    Nothing    -> []
     Just grid' -> grid' : go grid'
 
 
