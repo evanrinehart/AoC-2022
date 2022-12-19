@@ -11,6 +11,8 @@ import Data.Function
 import qualified Data.Map as M
 import Data.Map (Map,(!))
 
+import Control.DeepSeq
+
 import Control.Parallel.Strategies
 
 import AStar (findPathFromTo, PathSpace(..))
@@ -39,7 +41,7 @@ main = do
   let flowOf = makeFlowTable triples
   let meter = flowOf
   let urn    = reverse $ sortBy (comparing flowOf) (coreNodes triples)
-  let start  = Game1 ruler meter aa 0 30 urn
+  let start  = Game1 aa 0 30 urn
 
 
   --print (bounds ruler meter start, start)
@@ -47,9 +49,11 @@ main = do
   --let f = maximum . map scoreUB
   let g = length . filter (\Game1{oneUrn=urn} -> urn==[])
 
-  --mapM_ (print . g) $ iterate step [start]
-  let pile = iterate step [start] !! 11
-  mapM_ print pile
+  let pile = take 10 $ iterate (step1 ruler meter) [start]
+  mapM_ (print . length) $ pile
+  mapM_ print (last pile)
+  --let pile = iterate (step1 ruler meter) [start] !! 11
+  --mapM_ print pile
   --print (bounds ruler meter g1)
   --print (bounds ruler meter g2)
   
@@ -57,15 +61,6 @@ main = do
   --splitGame
 
 
-class Game g where
-  split   :: g -> [g]
-  scoreLB :: g -> Int
-  scoreUB :: g -> Int
-
-instance Game Game1 where
-  split = split1
-  scoreLB = scoreLB1
-  scoreUB = scoreUB1
 
 pruneBy :: (a -> Int) -> (a -> Int) -> [a] -> [a]
 pruneBy l r xs =
@@ -81,28 +76,30 @@ step pile = pruneBy l r $ concatMap f pile where
     []    -> [game]
     other -> other
 -}
-step :: [Game1] -> [Game1]
-step pile = pruneBy l r $ concatMap f pile where
-  l = scoreLB1
-  r = scoreUB1
-  f game = case split1 game of
+
+type Ruler = Node -> Node -> Int
+type Gauge = Node -> Int
+
+step1 :: Ruler -> Gauge -> [Game1] -> [Game1]
+step1 ruler meter pile = pruneBy l r $ concatMap f pile where
+  l = scoreLB1 ruler meter
+  r = scoreUB1 ruler meter
+  f game = case split1 ruler meter game of
     []    -> [game]
     other -> other
 
 data Game1 = Game1
-  { oneRuler   :: (Node -> Node -> Int)
-  , oneMeter   :: (Node -> Int)
-  , onePointer :: Node
+  { onePointer :: Node
   , oneScore   :: Int
   , oneTimer   :: Int
   , oneUrn     :: [Node] }
 
 instance Show Game1 where
-  show (Game1 _ _ ptr s t urn) =
+  show (Game1 ptr s t urn) =
     "{ptr=" ++ show ptr ++
     ",score=" ++ show s ++
     ",time=" ++ show t ++
-    ",urn" ++ show urn ++ "}"
+    ",urn=" ++ show urn ++ "}"
 
 {-
 splitGame :: Game1 -> [Game1]
@@ -120,45 +117,46 @@ splitGame (Game1 ruler flowOf ptr s t urn) = do
 -}
 
 -- assume this move is valid
-move1 :: Game1 -> Node -> Game1
-move1 (Game1 ruler meter ptr s t urn) next = cleanUrn g' where
-  urn' = delete next urn
+move1 :: Ruler -> Gauge -> Game1 -> Node -> Game1
+move1 ruler meter (Game1 ptr s t urn) next = cleanUrn ruler g' where
+  !urn' = force (delete next urn)
   d    = ruler ptr next
   t'   = t - d - 1
   rate = meter next
-  s'   = s + rate * t'
-  g'   = Game1 ruler meter next s' t' urn'
+  !s'   = s + rate * t'
+  g'   = Game1 next s' t' urn'
 
 -- same as move but distance cost is reduced to 1
-cheat1 :: Game1 -> Node -> Game1
-cheat1 (Game1 ruler meter ptr s t urn) next = cleanUrn g' where
-  urn' = delete next urn
+cheat1 :: Ruler -> Gauge -> Game1 -> Node -> Game1
+cheat1 ruler meter (Game1 ptr s t urn) next = cleanUrn ruler g' where
+  !urn' = force (delete next urn)
   t'   = t - 2
   rate = meter next
-  s'   = s + rate * t'
-  g'   = Game1 ruler meter next s' t' urn'
+  !s'   = s + rate * t'
+  g'   = Game1 next s' t' urn'
 
-validMoves1 :: Game1 -> [Node]
-validMoves1 (Game1 ruler meter ptr s t urn) = filter f urn where
+validMoves1 :: Ruler -> Game1 -> [Node]
+validMoves1 ruler (Game1 ptr s t urn) = filter f urn where
   f node = ruler ptr node + 1 <= t
 
-cleanUrn :: Game1 -> Game1
-cleanUrn g = g{oneUrn=validMoves1 g}
+cleanUrn :: Ruler -> Game1 -> Game1
+cleanUrn ruler g = g{oneUrn=validMoves1 ruler g}
 
-split1 :: Game1 -> [Game1]
-split1   Game1{oneUrn=[]}    = []
-split1 g@Game1{oneUrn=moves} = map (move1 g) moves
+split1 :: Ruler -> Gauge -> Game1 -> [Game1]
+split1 ruler gauge   Game1{oneUrn=[]}    = []
+split1 ruler gauge g@Game1{oneUrn=moves} = map (move1 ruler gauge g) moves
 
 -- game that is over has actual score as lower bound
-scoreLB1 :: Game1 -> Int
-scoreLB1   (Game1 _ _ _ s t []) = s
-scoreLB1   (Game1 _ _ _ s 0 _ ) = s
-scoreLB1 g@(Game1 _ _ _ s _ (m:oves) ) = scoreLB1 (move1 g m)
+scoreLB1 :: Ruler -> Gauge -> Game1 -> Int
+scoreLB1 _ _ (Game1 _ s _ _) = s
+--scoreLB1 ruler meter   (Game1 _ s t []) = s
+--scoreLB1 ruler meter   (Game1 _ s 0 _ ) = s
+--scoreLB1 ruler meter g@(Game1 _ s _ (m:oves) ) = scoreLB1 ruler meter (move1 ruler meter g m)
   
-scoreUB1 :: Game1 -> Int
-scoreUB1   (Game1 _ _ _ s t []) = s
-scoreUB1   (Game1 _ _ _ s 0 _ ) = s
-scoreUB1 g@(Game1 _ _ _ s t (m:oves)) = scoreUB1 (cheat1 g m)
+scoreUB1 :: Ruler -> Gauge -> Game1 -> Int
+scoreUB1 ruler meter   (Game1 _ s t []) = s
+scoreUB1 ruler meter   (Game1 _ s 0 _ ) = s
+scoreUB1 ruler meter g@(Game1 _ s t (m:oves)) = scoreUB1 ruler meter (cheat1 ruler meter g m)
 
 
 
@@ -247,8 +245,6 @@ splitOn z l@(x:xs)
   | otherwise = let (h,t) = break (==z) l in h:(splitOn z t)
 
 
-type Ruler     = Node -> Node -> Int
-type FlowMeter = Node -> Int
 
 makeNeighborhood :: [Triple] -> Node -> [Node]
 makeNeighborhood triples here = m ! (unNode here) where
